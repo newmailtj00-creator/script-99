@@ -9,17 +9,35 @@
     Tab 4  Scan         — ดึงของจริงในเกมมาให้เลือก
 ]]
 
-if getgenv().FN4080 then
-    warn("[40/80] already running — run: getgenv().FN4080 = nil  แล้วโหลดใหม่")
-    return
+-- reload ได้ไม่จำกัด: ปิดหน้าต่างเก่าก่อน ถ้ามี
+if getgenv().FN4080_Window then
+    pcall(function()
+        getgenv().FN4080_Window:Destroy()
+    end)
+    getgenv().FN4080_Window = nil
+    print("[40/80] old window destroyed")
 end
-getgenv().FN4080 = true
+
+print("[40/80] building UI...")
 
 local Players = game:GetService("Players")
 local LP      = Players.LocalPlayer
 
-local Fluent = loadstring(game:HttpGet(
-    "https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+local okFluent, Fluent = pcall(function()
+    return loadstring(game:HttpGet(
+        "https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+end)
+
+if not okFluent or type(Fluent) ~= "table" then
+    warn("[40/80] Fluent load failed: " .. tostring(Fluent))
+    game.StarterGui:SetCore("SendNotification", {
+        Title = "40/80",
+        Text = "Fluent load failed — check internet",
+        Duration = 10,
+    })
+    return
+end
+print("[40/80] Fluent loaded")
 
 local Window = Fluent:CreateWindow({
     Title    = "40/80",
@@ -37,7 +55,11 @@ local Tabs = {
     Chop = Window:AddTab({ Title = "Chop",        Icon = "axe" }),
     Scan = Window:AddTab({ Title = "Scan",        Icon = "radar" }),
 }
+print("[40/80] tabs created")
 local Options = Fluent.Options
+
+getgenv().FN4080_Window = Window
+print("[40/80] window created")
 
 -- =====================================================
 -- config
