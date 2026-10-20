@@ -1,7 +1,5 @@
 --[[
-    40/80 :: 99 Nights Engine  v3
-    =====================================================
-    Fluent API (Groupbox) — แก้ปัญหา tab ว่าง
+    40/80 :: 99 Nights Engine  v5  (Rayfield UI)
     =====================================================
     Tab 1  Accelerator  — auto กดเครื่องข้ามคืน
     Tab 2  Raid         — บุก stronghold ฆ่า cultist เก็บ gem
@@ -9,56 +7,39 @@
     Tab 4  Scan         — ดึงของจริงในเกมมาให้เลือก
 ]]
 
--- reload ได้ไม่จำกัด: ปิดหน้าต่างเก่าก่อน ถ้ามี
-if getgenv().FN4080_Window then
-    pcall(function()
-        getgenv().FN4080_Window:Destroy()
-    end)
-    getgenv().FN4080_Window = nil
-    print("[40/80] old window destroyed")
-end
+print("[40/80] start")
 
-print("[40/80] building UI...")
+if getgenv().FN4080_Unload then
+    pcall(getgenv().FN4080_Unload)
+    getgenv().FN4080_Unload = nil
+    print("[40/80] old ui unloaded")
+end
 
 local Players = game:GetService("Players")
 local LP      = Players.LocalPlayer
 
-local okFluent, Fluent = pcall(function()
-    return loadstring(game:HttpGet(
-        "https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+local okUI, Rayfield = pcall(function()
+    return loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 end)
 
-if not okFluent or type(Fluent) ~= "table" then
-    warn("[40/80] Fluent load failed: " .. tostring(Fluent))
+if not okUI or type(Rayfield) ~= "table" then
+    warn("[40/80] Rayfield load failed: " .. tostring(Rayfield))
     game.StarterGui:SetCore("SendNotification", {
         Title = "40/80",
-        Text = "Fluent load failed — check internet",
+        Text = "UI library load failed — check internet",
         Duration = 10,
     })
     return
 end
-print("[40/80] Fluent loaded")
+print("[40/80] Rayfield loaded")
 
-local Window = Fluent:CreateWindow({
-    Title    = "40/80",
-    SubTitle = "99 Nights",
-    TabWidth = 150,
-    Size     = UDim2.fromOffset(570, 480),
-    Acrylic  = true,
-    Theme    = "Dark",
-    MinimizeKey = Enum.KeyCode.RightControl,
+local Window = Rayfield:CreateWindow({
+    Name = "40/80 | 99 Nights",
+    LoadingTitle = "40/80",
+    LoadingSubtitle = "engine",
+    ConfigurationSaving = { Enabled = false },
+    KeySystem = false,
 })
-
-local Tabs = {
-    Acc  = Window:AddTab({ Title = "Accelerator", Icon = "clock" }),
-    Raid = Window:AddTab({ Title = "Raid",        Icon = "swords" }),
-    Chop = Window:AddTab({ Title = "Chop",        Icon = "axe" }),
-    Scan = Window:AddTab({ Title = "Scan",        Icon = "radar" }),
-}
-print("[40/80] tabs created")
-local Options = Fluent.Options
-
-getgenv().FN4080_Window = Window
 print("[40/80] window created")
 
 -- =====================================================
@@ -86,15 +67,11 @@ local CFG = {
 -- =====================================================
 -- helpers
 -- =====================================================
-local function char()
-    return LP.Character
-end
-
+local function char() return LP.Character end
 local function root()
     local c = char()
     return c and c:FindFirstChild("HumanoidRootPart")
 end
-
 local function hum()
     local c = char()
     return c and c:FindFirstChildOfClass("Humanoid")
@@ -127,7 +104,6 @@ end
 local function nearestPrompt(filterFn, radius)
     local r = root()
     if not r then return nil end
-
     local best, bestD
     for _, p in ipairs(allPrompts()) do
         if filterFn(p) then
@@ -149,7 +125,11 @@ local function walkTo(pos)
 end
 
 local function notify(text, dur)
-    Fluent:Notify({ Title = "40/80", Content = text, Duration = dur or 4 })
+    Rayfield:Notify({
+        Title = "40/80",
+        Content = text,
+        Duration = dur or 4,
+    })
 end
 
 -- =====================================================
@@ -158,7 +138,6 @@ end
 local function clickGuiButton(keywords)
     local pg = LP:FindFirstChild("PlayerGui")
     if not pg then return false end
-
     for _, d in ipairs(pg:GetDescendants()) do
         if (d:IsA("TextButton") or d:IsA("ImageButton")) and d.Visible then
             local hay = ((d.Text or "") .. " " .. d.Name):lower()
@@ -183,16 +162,12 @@ task.spawn(function()
     while task.wait(CFG.accDelay) do
         if not CFG.accOn or not CFG.accPrompt then continue end
         if CFG.accOnlyNight and not isNight() then continue end
-
         local r = root()
         if not r then continue end
 
         local target
         for _, p in ipairs(allPrompts()) do
-            if p:GetFullName() == CFG.accPrompt then
-                target = p
-                break
-            end
+            if p:GetFullName() == CFG.accPrompt then target = p; break end
         end
         if not target then continue end
 
@@ -206,10 +181,7 @@ task.spawn(function()
 
         if CFG.accConfirm then
             task.wait(0.4)
-            clickGuiButton({
-                "skip", "accelerat", "activate", "confirm",
-                "yes", "use", "night",
-            })
+            clickGuiButton({ "skip", "accelerat", "activate", "confirm", "yes", "use", "night" })
         end
     end
 end)
@@ -230,7 +202,6 @@ end
 local function nearestCultist(radius)
     local r = root()
     if not r then return nil end
-
     local best, bestD
     for _, d in ipairs(workspace:GetDescendants()) do
         if d:IsA("Humanoid") and d.Health > 0 then
@@ -252,13 +223,10 @@ end
 local function equipWeapon()
     local c = char()
     if not c then return nil end
-
     local eq = c:FindFirstChildOfClass("Tool")
     if eq then return eq end
-
     local bp = c:FindFirstChild("Backpack")
     if not bp then return nil end
-
     local tool = bp:FindFirstChildWhichIsA("Tool")
     if tool then
         local h = hum()
@@ -273,10 +241,8 @@ task.spawn(function()
         if not CFG.raidOn then continue end
         local r = root()
         if not r then continue end
-
         local target, dist = nearestCultist(CFG.raidRadius)
         if not target then continue end
-
         local pos = posOf(target)
         if not pos then continue end
 
@@ -284,8 +250,7 @@ task.spawn(function()
             walkTo(pos)
         else
             pcall(function()
-                r.CFrame = CFrame.lookAt(r.Position,
-                    Vector3.new(pos.X, r.Position.Y, pos.Z))
+                r.CFrame = CFrame.lookAt(r.Position, Vector3.new(pos.X, r.Position.Y, pos.Z))
             end)
             local w = equipWeapon()
             if w then pcall(function() w:Activate() end) end
@@ -309,300 +274,300 @@ task.spawn(function()
 
         if target then
             local pos = posOf(target.Parent)
-            if pos and (pos - r.Position).Magnitude > 12 then
-                walkTo(pos)
-            end
+            if pos and (pos - r.Position).Magnitude > 12 then walkTo(pos) end
             pcall(fireproximityprompt, target)
         end
     end
 end)
 
 -- =====================================================
--- SCAN helpers
+-- UI
 -- =====================================================
-local accDrop, chopDrop
+local TabAcc  = Window:CreateTab("Accelerator", 4483362458)
+local TabRaid = Window:CreateTab("Raid", 4483362458)
+local TabChop = Window:CreateTab("Chop", 4483362458)
+local TabScan = Window:CreateTab("Scan", 4483362458)
+print("[40/80] tabs created")
 
-local function refreshPromptDrops()
-    local list = {}
-    for _, p in ipairs(allPrompts()) do
-        list[#list + 1] = promptLabel(p)
-    end
-    table.sort(list)
-    if #list == 0 then list = { "(none)" } end
+-- ── Accelerator ──────────────────────────────────────
+TabAcc:CreateSection("Skip Night")
 
-    if accDrop then accDrop:SetValues(list) end
-    if chopDrop then chopDrop:SetValues(list) end
-    return list
-end
+TabAcc:CreateToggle({
+    Name = "Auto Skip Night",
+    CurrentValue = false,
+    Flag = "accOn",
+    Callback = function(v) CFG.accOn = v end,
+})
 
-local function dumpGui()
-    local pg = LP:FindFirstChild("PlayerGui")
-    if not pg then return {} end
-    local out = {}
-    for _, d in ipairs(pg:GetDescendants()) do
-        if d:IsA("TextButton") or d:IsA("ImageButton") then
-            out[#out + 1] = ("%s | %s | visible=%s"):format(
-                d.ClassName, d:GetFullName(), tostring(d.Visible))
+TabAcc:CreateDropdown({
+    Name = "Accelerator Prompt",
+    Options = { "(press Scan first)" },
+    CurrentOption = { "(press Scan first)" },
+    MultipleOptions = false,
+    Flag = "accPrompt",
+    Callback = function(v)
+        if type(v) == "table" then v = v[1] end
+        CFG.accPrompt = v
+    end,
+})
+
+TabAcc:CreateToggle({
+    Name = "Auto Confirm Menu",
+    CurrentValue = true,
+    Flag = "accConfirm",
+    Callback = function(v) CFG.accConfirm = v end,
+})
+
+TabAcc:CreateToggle({
+    Name = "Only At Night",
+    CurrentValue = true,
+    Flag = "accNight",
+    Callback = function(v) CFG.accOnlyNight = v end,
+})
+
+TabAcc:CreateSlider({
+    Name = "Loop Delay",
+    Range = { 0.3, 5 },
+    Increment = 0.1,
+    Suffix = "s",
+    CurrentValue = 1.5,
+    Flag = "accDelay",
+    Callback = function(v) CFG.accDelay = v end,
+})
+
+TabAcc:CreateButton({
+    Name = "Fire Prompt Once",
+    Callback = function()
+        if not CFG.accPrompt then return notify("ยังไม่ได้เลือก prompt") end
+        for _, p in ipairs(allPrompts()) do
+            if p:GetFullName() == CFG.accPrompt then
+                pcall(fireproximityprompt, p)
+                return notify("fired: " .. p.Name)
+            end
         end
-    end
-    return out
-end
+        notify("prompt not found")
+    end,
+})
 
--- =====================================================
--- UI — ACCELERATOR
--- =====================================================
-do
-    local G = Tabs.Acc:AddLeftGroupbox("Skip Night")
-    G:AddLabel("1 Cultist Gem = ข้าม 1 คืน (1:30) ไม่มี cooldown")
+TabAcc:CreateButton({
+    Name = "Check Time",
+    Callback = function()
+        local ct = game:GetService("Lighting").ClockTime
+        notify(("ClockTime %.1f — %s"):format(ct, isNight() and "NIGHT" or "DAY"))
+    end,
+})
 
-    G:AddToggle("AccToggle", {
-        Title = "Auto Skip Night",
-        Default = false,
-        Callback = function(v) CFG.accOn = v end,
-    })
+-- ── Raid ─────────────────────────────────────────────
+TabRaid:CreateSection("Cultist")
 
-    accDrop = G:AddDropdown("AccPrompt", {
-        Title = "Accelerator Prompt",
-        Description = "กด Scan ก่อน แล้วเลือก",
-        Values = { "(run Scan)" },
-        Default = nil,
-        Callback = function(v) CFG.accPrompt = v end,
-    })
+TabRaid:CreateToggle({
+    Name = "Auto Raid",
+    CurrentValue = false,
+    Flag = "raidOn",
+    Callback = function(v) CFG.raidOn = v end,
+})
 
-    G:AddToggle("AccConfirm", {
-        Title = "Auto Confirm Menu",
-        Default = true,
-        Callback = function(v) CFG.accConfirm = v end,
-    })
+TabRaid:CreateSlider({
+    Name = "Search Radius",
+    Range = { 20, 400 },
+    Increment = 10,
+    Suffix = " studs",
+    CurrentValue = 120,
+    Flag = "raidRadius",
+    Callback = function(v) CFG.raidRadius = v end,
+})
 
-    G:AddToggle("AccNight", {
-        Title = "Only At Night",
-        Default = true,
-        Callback = function(v) CFG.accOnlyNight = v end,
-    })
+TabRaid:CreateSlider({
+    Name = "Attack Delay",
+    Range = { 0.05, 1.5 },
+    Increment = 0.05,
+    Suffix = "s",
+    CurrentValue = 0.25,
+    Flag = "raidDelay",
+    Callback = function(v) CFG.raidDelay = v end,
+})
 
-    G:AddSlider("AccDelay", {
-        Title = "Loop Delay (s)",
-        Default = 1.5, Min = 0.3, Max = 5, Rounding = 1,
-        Callback = function(v) CFG.accDelay = v end,
-    })
+TabRaid:CreateInput({
+    Name = "Name Filter",
+    CurrentValue = "cultist",
+    PlaceholderText = "cultist,wolf",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(t)
+        local list = {}
+        for s in tostring(t):gmatch("[^,]+") do
+            local s2 = s:match("^%s*(.-)%s*$"):lower()
+            if #s2 > 0 then list[#list + 1] = s2 end
+        end
+        CFG.raidNames = (#list > 0) and list or { "cultist" }
+    end,
+})
 
-    local G2 = Tabs.Acc:AddRightGroupbox("Test")
-    G2:AddButton({
-        Title = "Fire Prompt Once",
-        Callback = function()
-            if not CFG.accPrompt then return notify("ยังไม่ได้เลือก prompt") end
-            for _, p in ipairs(allPrompts()) do
-                if p:GetFullName() == CFG.accPrompt then
-                    pcall(fireproximityprompt, p)
-                    return notify("fired: " .. p.Name)
+TabRaid:CreateButton({
+    Name = "Scan Cultists",
+    Callback = function()
+        local n, names = 0, {}
+        for _, d in ipairs(workspace:GetDescendants()) do
+            if d:IsA("Humanoid") and d.Health > 0 then
+                local m = d.Parent
+                if isCultist(m) then
+                    n += 1
+                    if n <= 5 then names[#names + 1] = m.Name end
                 end
             end
-            notify("prompt not found")
-        end,
-    })
-    G2:AddButton({
-        Title = "Check Time",
-        Callback = function()
-            local ct = game:GetService("Lighting").ClockTime
-            notify(("ClockTime %.1f — %s"):format(ct, isNight() and "NIGHT" or "DAY"))
-        end,
-    })
-end
+        end
+        notify(("cultists: %d | %s"):format(n, table.concat(names, ", ")), 6)
+    end,
+})
 
--- =====================================================
--- UI — RAID
--- =====================================================
-do
-    local G = Tabs.Raid:AddLeftGroupbox("Cultist")
-    G:AddLabel("Cultist Stronghold = แหล่ง gem ไม่อั้น")
-
-    G:AddToggle("RaidToggle", {
-        Title = "Auto Raid",
-        Default = false,
-        Callback = function(v) CFG.raidOn = v end,
-    })
-
-    G:AddSlider("RaidRadius", {
-        Title = "Search Radius",
-        Default = 120, Min = 20, Max = 400, Rounding = 0,
-        Callback = function(v) CFG.raidRadius = v end,
-    })
-
-    G:AddSlider("RaidDelay", {
-        Title = "Attack Delay (s)",
-        Default = 0.25, Min = 0.05, Max = 1.5, Rounding = 2,
-        Callback = function(v) CFG.raidDelay = v end,
-    })
-
-    G:AddInput("RaidNames", {
-        Title = "Name Filter",
-        Description = "คั่นด้วย ,",
-        Default = "cultist",
-        Placeholder = "cultist",
-        Callback = function(v)
-            local t = {}
-            for s in v:gmatch("[^,]+") do
-                local s2 = s:match("^%s*(.-)%s*$"):lower()
-                if #s2 > 0 then t[#t + 1] = s2 end
+TabRaid:CreateButton({
+    Name = "List All Humanoids",
+    Callback = function()
+        local seen, list = {}, {}
+        for _, d in ipairs(workspace:GetDescendants()) do
+            if d:IsA("Humanoid") and d.Parent then
+                local n = d.Parent.Name
+                if not seen[n] then seen[n] = true; list[#list + 1] = n end
             end
-            CFG.raidNames = (#t > 0) and t or { "cultist" }
-        end,
-    })
+        end
+        print("========== HUMANOIDS ==========")
+        print(table.concat(list, "\n"))
+        notify(("names: %d (see console)"):format(#list), 6)
+    end,
+})
 
-    local G2 = Tabs.Raid:AddRightGroupbox("Inspect")
-    G2:AddButton({
-        Title = "Scan Cultists",
-        Callback = function()
-            local n, names = 0, {}
-            for _, d in ipairs(workspace:GetDescendants()) do
-                if d:IsA("Humanoid") and d.Health > 0 then
-                    local m = d.Parent
-                    if isCultist(m) then
-                        n += 1
-                        if n <= 5 then names[#names + 1] = m.Name end
-                    end
+-- ── Chop ─────────────────────────────────────────────
+TabChop:CreateSection("Trees")
+
+TabChop:CreateToggle({
+    Name = "Auto Chop",
+    CurrentValue = false,
+    Flag = "chopOn",
+    Callback = function(v) CFG.chopOn = v end,
+})
+
+TabChop:CreateSlider({
+    Name = "Search Radius",
+    Range = { 5, 250 },
+    Increment = 5,
+    Suffix = " studs",
+    CurrentValue = 45,
+    Flag = "chopRadius",
+    Callback = function(v) CFG.chopRadius = v end,
+})
+
+TabChop:CreateSlider({
+    Name = "Delay",
+    Range = { 0.05, 1.5 },
+    Increment = 0.05,
+    Suffix = "s",
+    CurrentValue = 0.2,
+    Flag = "chopDelay",
+    Callback = function(v) CFG.chopDelay = v end,
+})
+
+TabChop:CreateToggle({
+    Name = "Any Prompt",
+    CurrentValue = true,
+    Flag = "chopAll",
+    Callback = function(v) CFG.chopAll = v end,
+})
+
+-- ── Scan ─────────────────────────────────────────────
+TabScan:CreateSection("Prompts")
+
+TabScan:CreateButton({
+    Name = "Scan Prompts",
+    Callback = function()
+        local list = {}
+        for _, p in ipairs(allPrompts()) do list[#list + 1] = promptLabel(p) end
+        table.sort(list)
+        if #list == 0 then list = { "(none)" } end
+        print("========== PROMPTS ==========")
+        print(table.concat(list, "\n"))
+        notify(("prompts: %d (see console)"):format(#list), 6)
+    end,
+})
+
+TabScan:CreateButton({
+    Name = "Dump Prompts to File",
+    Callback = function()
+        local lines = {}
+        for _, p in ipairs(allPrompts()) do
+            local pos = posOf(p.Parent)
+            lines[#lines + 1] = ("%s | %s | %s"):format(
+                p:GetFullName(), tostring(p.ActionText),
+                pos and tostring(pos) or "?")
+        end
+        local s = table.concat(lines, "\n")
+        print(s)
+        if writefile then pcall(writefile, "4080_prompts.txt", s) end
+        notify("saved 4080_prompts.txt")
+    end,
+})
+
+TabScan:CreateSection("Debug")
+
+TabScan:CreateButton({
+    Name = "Dump GUI Buttons",
+    Callback = function()
+        local pg = LP:FindFirstChild("PlayerGui")
+        local out = {}
+        if pg then
+            for _, d in ipairs(pg:GetDescendants()) do
+                if d:IsA("TextButton") or d:IsA("ImageButton") then
+                    out[#out + 1] = ("%s | %s | visible=%s"):format(
+                        d.ClassName, d:GetFullName(), tostring(d.Visible))
                 end
             end
-            notify(("cultists: %d | %s"):format(n, table.concat(names, ", ")), 6)
-        end,
-    })
-    G2:AddButton({
-        Title = "List All Humanoids",
-        Callback = function()
-            local seen, list = {}, {}
-            for _, d in ipairs(workspace:GetDescendants()) do
-                if d:IsA("Humanoid") and d.Parent then
-                    local n = d.Parent.Name
-                    if not seen[n] then
-                        seen[n] = true
-                        list[#list + 1] = n
-                    end
-                end
+        end
+        local s = table.concat(out, "\n")
+        print("========== GUI BUTTONS ==========")
+        print(s)
+        if writefile then pcall(writefile, "4080_gui.txt", s) end
+        notify(("gui buttons: %d"):format(#out), 5)
+    end,
+})
+
+TabScan:CreateButton({
+    Name = "Dump Remotes (30s)",
+    Callback = function()
+        local cap = {}
+        local old
+        old = hookmetamethod(game, "__namecall", function(self, ...)
+            local m = getnamecallmethod()
+            if m == "FireServer" or m == "InvokeServer" then
+                local e = cap[self.Name]
+                if not e then e = { n = 0, a = "" }; cap[self.Name] = e end
+                e.n += 1
+                local args = {...}
+                local t = {}
+                for i = 1, math.min(#args, 4) do t[i] = tostring(args[i]) end
+                e.a = table.concat(t, ", ")
             end
-            print("========== HUMANOIDS ==========")
-            print(table.concat(list, "\n"))
-            notify(("humanoid names: %d (see console)"):format(#list), 6)
-        end,
-    })
-end
+            return old(self, ...)
+        end)
 
--- =====================================================
--- UI — CHOP
--- =====================================================
-do
-    local G = Tabs.Chop:AddLeftGroupbox("Trees")
-
-    G:AddToggle("ChopToggle", {
-        Title = "Auto Chop",
-        Default = false,
-        Callback = function(v) CFG.chopOn = v end,
-    })
-
-    G:AddSlider("ChopRadius", {
-        Title = "Search Radius",
-        Default = 45, Min = 5, Max = 250, Rounding = 0,
-        Callback = function(v) CFG.chopRadius = v end,
-    })
-
-    G:AddSlider("ChopDelay", {
-        Title = "Delay (s)",
-        Default = 0.2, Min = 0.05, Max = 1.5, Rounding = 2,
-        Callback = function(v) CFG.chopDelay = v end,
-    })
-
-    G:AddToggle("ChopAll", {
-        Title = "Any Prompt",
-        Default = true,
-        Callback = function(v) CFG.chopAll = v end,
-    })
-
-    chopDrop = G:AddDropdown("ChopPrompt", {
-        Title = "Specific Prompt",
-        Values = { "(run Scan)" },
-        Default = nil,
-        Callback = function(v) CFG.chopPrompt = v end,
-    })
-end
-
--- =====================================================
--- UI — SCAN
--- =====================================================
-do
-    local G = Tabs.Scan:AddLeftGroupbox("Prompts")
-    G:AddButton({
-        Title = "Scan Prompts",
-        Callback = function()
-            local list = refreshPromptDrops()
-            notify(("prompts: %d"):format(#list))
-        end,
-    })
-    G:AddButton({
-        Title = "Dump Prompts to File",
-        Callback = function()
+        task.delay(30, function()
+            local keys = {}
+            for k in pairs(cap) do keys[#keys + 1] = k end
+            table.sort(keys)
             local lines = {}
-            for _, p in ipairs(allPrompts()) do
-                local pos = posOf(p.Parent)
-                lines[#lines + 1] = ("%s | %s | %s"):format(
-                    p:GetFullName(), tostring(p.ActionText),
-                    pos and tostring(pos) or "?")
+            for _, k in ipairs(keys) do
+                lines[#lines + 1] = ("%-24s x%-4d %s"):format(k, cap[k].n, cap[k].a)
             end
             local s = table.concat(lines, "\n")
             print(s)
-            if writefile then pcall(writefile, "4080_prompts.txt", s) end
-            notify("saved 4080_prompts.txt")
-        end,
-    })
+            if writefile then pcall(writefile, "4080_remotes.txt", s) end
+            notify("saved 4080_remotes.txt", 5)
+        end)
 
-    local G2 = Tabs.Scan:AddRightGroupbox("Debug")
-    G2:AddButton({
-        Title = "Dump GUI Buttons",
-        Callback = function()
-            local list = dumpGui()
-            print("========== GUI BUTTONS ==========")
-            print(table.concat(list, "\n"))
-            if writefile then pcall(writefile, "4080_gui.txt", table.concat(list, "\n")) end
-            notify(("gui buttons: %d"):format(#list), 5)
-        end,
-    })
-    G2:AddButton({
-        Title = "Dump Remotes (30s)",
-        Callback = function()
-            local cap = {}
-            local old
-            old = hookmetamethod(game, "__namecall", function(self, ...)
-                local m = getnamecallmethod()
-                if m == "FireServer" or m == "InvokeServer" then
-                    local e = cap[self.Name]
-                    if not e then e = { n = 0, a = "" }; cap[self.Name] = e end
-                    e.n += 1
-                    local args = {...}
-                    local t = {}
-                    for i = 1, math.min(#args, 4) do t[i] = tostring(args[i]) end
-                    e.a = table.concat(t, ", ")
-                end
-                return old(self, ...)
-            end)
+        notify("capturing 30s — go play", 5)
+    end,
+})
 
-            task.delay(30, function()
-                local keys = {}
-                for k in pairs(cap) do keys[#keys + 1] = k end
-                table.sort(keys)
-
-                local lines = {}
-                for _, k in ipairs(keys) do
-                    lines[#lines + 1] = ("%-24s x%-4d %s"):format(k, cap[k].n, cap[k].a)
-                end
-                local s = table.concat(lines, "\n")
-                print(s)
-                if writefile then pcall(writefile, "4080_remotes.txt", s) end
-                notify("saved 4080_remotes.txt", 5)
-            end)
-
-            notify("capturing 30s — go play", 5)
-        end,
-    })
+getgenv().FN4080_Unload = function()
+    pcall(function() Window:Destroy() end)
 end
 
-Window:SelectTab(1)
+print("[40/80] ready")
 notify("loaded — Scan ก่อน แล้วค่อยเปิด toggle", 6)
